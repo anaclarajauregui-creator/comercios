@@ -1,6 +1,6 @@
 /* Service worker — Relevamiento de Comercios Curuzú Cuatiá
    Offline-first: cachea el shell de la app (incluye los datos embebidos en index.html). */
-const CACHE = 'relevar-comercios-v8';
+const CACHE = 'relevar-comercios-v9';
 const ASSETS = [
   './',
   './index.html',

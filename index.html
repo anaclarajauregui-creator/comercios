@@ -71,6 +71,13 @@ textarea{min-height:76px;resize:vertical}
 .small{font-size:12px;color:var(--muted);line-height:1.5}
 .banner-off{background:var(--orange);color:#3a2a00;text-align:center;font-size:13px;font-weight:800;padding:7px}
 .sec{border-top:1px solid var(--line);margin-top:6px;padding-top:4px}
+.seg{display:flex;gap:8px;margin-top:4px}
+.seg-b{flex:1;padding:12px 8px;border:2px solid #d7dcea;background:#fff;border-radius:12px;font-size:15px;font-weight:700;color:#6b7490;cursor:pointer;transition:.12s;line-height:1.2}
+.seg-b.on[data-v="Activo"]{border-color:#16C7BF;background:#e7faf8;color:#0c8f87}
+.seg-b.on[data-v="Inactivo"]{border-color:#F13776;background:#fdeaf1;color:#F13776}
+.fotoprev{margin-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fotoprev img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #e7eaf3}
+.fotoprev .rm{color:#F13776;font-weight:700;font-size:14px;cursor:pointer;background:none;border:0}
 </style></head>
 <body>
 <div id="offline" class="banner-off hide">📴 Sin conexión — se guarda todo y se sincroniza después.</div>
@@ -149,6 +156,11 @@ textarea{min-height:76px;resize:vertical}
       <label>Rubro principal</label><select id="fRubro"></select>
       <label>Otro rubro (si no está en la lista)</label><input id="fRubroOtro" placeholder="Escribir rubro">
       <div class="grid2"><div><label>Calle</label><input id="fCalle"></div><div><label>Altura</label><input id="fAlt" inputmode="numeric"></div></div>
+      <label>Estado del comercio</label>
+      <div class="seg" id="fEstadoSeg">
+        <button type="button" class="seg-b on" data-v="Activo">✅ Activo</button>
+        <button type="button" class="seg-b" data-v="Inactivo">⛔ Cerrado / No activo</button>
+      </div>
     </div>
 
     <div class="card">
@@ -162,6 +174,13 @@ textarea{min-height:76px;resize:vertical}
       <div class="grid2"><div><label>Teléfono</label><input id="fTel" inputmode="tel"></div><div><label>WhatsApp</label><input id="fWa" inputmode="tel"></div></div>
       <label>Email</label><input id="fEmail" inputmode="email">
       <label>Redes / web</label><input id="fRedes" placeholder="@instagram / web">
+    </div>
+
+    <div class="card">
+      <h2>Foto del comercio</h2>
+      <label class="btn tt" for="fFotoInput" style="display:block;text-align:center">📷 Agregar / tomar foto</label>
+      <input id="fFotoInput" type="file" accept="image/*" capture="environment" style="display:none">
+      <div id="fFotoPrev" class="gpsbox empty" style="margin-top:10px">Sin foto todavía.</div>
     </div>
   </div>
 
@@ -314,7 +333,7 @@ $("comSearch").addEventListener("input",function(){
 });
 
 // ---- ficha ----
-var curPartida=null, curGps=null, curFoto=null, editingId=null;
+var curPartida=null, curGps=null, curFoto=null, curEstado="Activo", editingId=null;
 function fillRubros(sel,val){sel.innerHTML='<option value="">— Seleccionar —</option>'+RUBROS.map(function(r){return '<option'+(r===val?' selected':'')+'>'+esc(r)+'</option>';}).join("")+'<option value="__otro">Otro…</option>';}
 function openFicha(partida, calleForNew){
   curPartida=partida; curGps=null; curFoto=null; editingId=null;
@@ -335,9 +354,37 @@ function openFicha(partida, calleForNew){
   if(s.gps){curGps=s.gps;$("gpsInfo").className="gpsbox";$("gpsInfo").innerHTML="✓ Guardada: "+s.gps.lat.toFixed(6)+", "+s.gps.lng.toFixed(6);}
   else if(rec&&rec.lat){curGps={lat:rec.lat,lng:rec.lng,acc:null,metodo:"padron"};$("gpsInfo").className="gpsbox";$("gpsInfo").innerHTML="Del padrón: "+rec.lat.toFixed(6)+", "+rec.lng.toFixed(6)+". Tomá GPS para precisar.";}
   else{curGps=null;$("gpsInfo").className="gpsbox empty";$("gpsInfo").textContent="Sin ubicación todavía.";}
+  curEstado=(s.estado==="Inactivo")?"Inactivo":"Activo"; setEstadoUI();
+  curFoto=s.foto||null; setFotoUI();
   if(existing)editingId=existing.id;
   show("ficha");
 }
+function setEstadoUI(){
+  Array.prototype.forEach.call(document.querySelectorAll("#fEstadoSeg .seg-b"),function(b){
+    b.classList.toggle("on", b.getAttribute("data-v")===curEstado);
+  });
+}
+function setFotoUI(){
+  var el=$("fFotoPrev");
+  if(curFoto){ el.className="gpsbox"; el.innerHTML='<div class="fotoprev"><img src="'+curFoto+'"><button type="button" class="rm" id="fFotoRm">Quitar foto</button></div>';
+    $("fFotoRm").onclick=function(){curFoto=null;$("fFotoInput").value="";setFotoUI();}; }
+  else { el.className="gpsbox empty"; el.textContent="Sin foto todavía."; }
+}
+Array.prototype.forEach.call(document.querySelectorAll("#fEstadoSeg .seg-b"),function(b){
+  b.onclick=function(){curEstado=b.getAttribute("data-v");setEstadoUI();};
+});
+$("fFotoInput").onchange=function(){
+  var file=this.files&&this.files[0]; if(!file)return;
+  var img=new Image(), rd=new FileReader();
+  rd.onload=function(){ img.onload=function(){
+    var max=1000, w=img.width, h=img.height;
+    if(w>h&&w>max){h=Math.round(h*max/w);w=max;} else if(h>max){w=Math.round(w*max/h);h=max;}
+    var c=document.createElement("canvas");c.width=w;c.height=h;
+    c.getContext("2d").drawImage(img,0,0,w,h);
+    curFoto=c.toDataURL("image/jpeg",0.7); setFotoUI();
+  }; img.src=rd.result; };
+  rd.readAsDataURL(file);
+};
 $("btnGps").onclick=function(){
   if(!navigator.geolocation){toast("GPS no disponible");return;}
   $("gpsInfo").className="gpsbox";$("gpsInfo").textContent="Obteniendo ubicación…";
@@ -351,12 +398,12 @@ $("fSave").onclick=function(){
   if(!$("fFant").value.trim()){toast("Poné el nombre del comercio");return;}
   if(!curGps){toast("Falta la ubicación GPS");return;}
   var f={id:editingId||("R-"+Date.now()+"-"+Math.floor(Math.random()*1000)),partida:curPartida||"",
-    estado:"",fant:$("fFant").value.trim(),tit:"",cuit:"",
+    estado:curEstado,fant:$("fFant").value.trim(),tit:"",cuit:"",
     rubro:$("fRubro").value==="__otro"?"":$("fRubro").value,rubro_otro:$("fRubroOtro").value.trim(),
     calle:$("fCalle").value.trim(),alt:$("fAlt").value.trim(),entre:"",gps:curGps,
     tel:$("fTel").value.trim(),wa:$("fWa").value.trim(),email:$("fEmail").value.trim(),redes:$("fRedes").value.trim(),
     horario:"",dias:[],emp:"",anio:"",obs:"",
-    foto:"",encuestador:(CFG&&CFG.name)||"",zona:(CFG&&CFG.zona)||"",ts:new Date().toISOString(),synced:false};
+    foto:curFoto||"",encuestador:(CFG&&CFG.name)||"",zona:(CFG&&CFG.zona)||"",ts:new Date().toISOString(),synced:false};
   var idx=-1;QUEUE.forEach(function(x,i){if(x.id===f.id)idx=i;});
   if(idx>=0)QUEUE[idx]=f;else QUEUE.push(f);
   saveQ();toast("Relevamiento guardado ✓");refreshHome();
@@ -367,7 +414,7 @@ $("fSave").onclick=function(){
 function renderMias(){
   if(!QUEUE.length){$("miasList").innerHTML='<p class="small">Todavía no cargaste relevamientos.</p>';return;}
   $("miasList").innerHTML=QUEUE.slice().reverse().map(function(f){
-    return '<div class="com-item" data-id="'+esc(f.id)+'"><div><div class="n">'+esc(f.fant||f.tit||"(sin nombre)")+'</div>'+
+    return '<div class="com-item" data-id="'+esc(f.id)+'"><div><div class="n">'+esc(f.fant||f.tit||"(sin nombre)")+(f.estado==="Inactivo"?' <span style="color:#F13776;font-size:12px">⛔ cerrado</span>':'')+(f.foto?' 📷':'')+'</div>'+
       '<div class="d">'+esc(f.calle)+' '+esc(f.alt)+(f.rubro?' · '+esc(f.rubro):'')+'</div></div><span class="chip '+(f.synced?'done':'pend')+'">'+(f.synced?'sincro':'pendiente')+'</span></div>';
   }).join("");
   Array.prototype.forEach.call($("miasList").querySelectorAll(".com-item"),function(el){el.onclick=function(){var id=el.getAttribute("data-id");var f=null;QUEUE.forEach(function(x){if(x.id===id)f=x;});if(f){curFrom="mias";openFicha(f.partida||null,f.calle);}};});

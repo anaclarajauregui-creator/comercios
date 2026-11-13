@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero de Avance · Relevamiento de Comercios</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --navy:#273B84; --teal:#16C7BF; --pink:#F13776; --gold:#F7AB1A;
+    --ink:#2a3350; --muted:#6b7490; --line:#e7eaf3; --bg:#f4f6fb; --card:#fff;
+  }
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding-bottom:40px}
+  .top{background:var(--navy);color:#fff;padding:20px 22px}
+  .top .wrap{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .top h1{font-size:22px;font-weight:800;letter-spacing:-.2px}
+  .top .sub{font-size:13px;opacity:.85;margin-top:3px;letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+  .refresh{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .btn{background:var(--teal);color:#06302e;border:0;border-radius:10px;padding:10px 16px;font-size:14px;
+    font-weight:800;cursor:pointer;transition:.15s;white-space:nowrap}
+  .btn:hover{filter:brightness(1.07)}
+  .btn:disabled{opacity:.6;cursor:default}
+  .stamp{font-size:12px;opacity:.85;text-align:right;min-width:140px}
+  .stamp b{font-weight:700}
+  main{max-width:1100px;margin:0 auto;padding:0 18px}
+  .state{margin:20px 2px;font-size:14px;color:var(--muted)}
+  .state.err{color:#c0362c;font-weight:600}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--teal);margin-right:6px;vertical-align:middle}
+  .dot.live{animation:p 1.4s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;position:relative;overflow:hidden}
+  .kpi .cap{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .kpi .big{font-size:40px;font-weight:800;line-height:1.05;margin-top:6px;color:var(--navy)}
+  .kpi .small{font-size:13px;color:var(--muted);margin-top:3px}
+  .kpi .bar-k{width:5px;position:absolute;left:0;top:0;bottom:0}
+  .k1 .bar-k{background:var(--navy)} .k2 .bar-k{background:var(--teal)}
+  .k3 .bar-k{background:var(--pink)} .k4 .bar-k{background:var(--gold)}
+  /* global progress */
+  .gp{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:22px}
+  .gp .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .gp .row .t{font-weight:800;color:var(--navy);font-size:16px}
+  .gp .row .p{font-weight:800;color:var(--navy);font-size:20px}
+  .track{height:18px;background:#eef1f8;border-radius:10px;overflow:hidden}
+  .fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--navy));border-radius:10px;transition:width .5s}
+  .gp .note{font-size:12px;color:var(--muted);margin-top:8px}
+  /* grid of panels */
+  .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px}
+  .panel h2{font-size:15px;color:var(--navy);font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .panel .ph{font-size:12px;color:var(--muted);margin-bottom:14px}
+  /* zonas table */
+  .ztbl{width:100%;border-collapse:collapse;font-size:13px}
+  .ztbl th{text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+    padding:6px 8px;border-bottom:2px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+  .ztbl th.n,.ztbl td.n{text-align:right}
+  .ztbl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .ztbl tr:last-child td{border-bottom:0}
+  .zname{font-weight:700;color:var(--navy);white-space:nowrap}
+  .minibar{position:relative;height:16px;background:#eef1f8;border-radius:8px;min-width:90px}
+  .minibar>span{position:absolute;left:0;top:0;bottom:0;border-radius:8px}
+  .pct{font-weight:800;min-width:42px;display:inline-block;text-align:right}
+  .g-hi>span{background:var(--teal)} .g-mid>span{background:var(--gold)} .g-lo>span{background:var(--pink)}
+  .g-hi .pct{color:#0c8f87} .g-mid .pct{color:#b9830d} .g-lo .pct{color:var(--pink)}
+  .g-done>span{background:var(--navy)} .g-done .pct{color:var(--navy)}
+  /* rankings */
+  .rank{list-style:none;display:flex;flex-direction:column;gap:11px}
+  .rank li{display:grid;grid-template-columns:1fr auto;gap:4px}
+  .rank .lbl{display:flex;justify-content:space-between;font-size:13px}
+  .rank .lbl b{color:var(--navy);font-weight:700}
+  .rank .lbl .c{color:var(--muted);font-weight:700}
+  .rank .rb{height:9px;background:#eef1f8;border-radius:6px;overflow:hidden}
+  .rank .rb>span{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--pink),var(--gold))}
+  .empty{color:var(--muted);font-size:13px;padding:10px 0}
+  .foot{max-width:1100px;margin:10px auto 0;padding:0 20px;font-size:11px;color:var(--muted);text-align:center;line-height:1.5}
+  @media(max-width:860px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .cols{grid-template-columns:1fr}
+    .top h1{font-size:19px}
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="wrap">
+    <div>
+      <h1>Tablero de Avance</h1>
+      <div class="sub">Relevamiento de Comercios · Curuzú Cuatiá · UNNE</div>
+    </div>
+    <div class="refresh">
+      <button class="btn" id="btn" onclick="cargar()">Actualizar</button>
+      <div class="stamp" id="stamp">—</div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="state" id="state"><span class="dot live"></span>Cargando datos de la planilla…</div>
+
+  <div id="dash" style="display:none">
+    <div class="kpis">
+      <div class="kpi k1"><div class="bar-k"></div><div class="cap">Comercios relevados</div><div class="big" id="kTotal">0</div><div class="small" id="kTotalSub">cargados en la planilla</div></div>
+      <div class="kpi k2"><div class="bar-k"></div><div class="cap">Avance del padrón</div><div class="big" id="kPct">0%</div><div class="small" id="kPctSub">sobre 2.298 georref.</div></div>
+      <div class="kpi k3"><div class="bar-k"></div><div class="cap">Zonas iniciadas</div><div class="big" id="kZonas">0<span style="font-size:20px;color:var(--muted)">/22</span></div><div class="small" id="kZonasSub">con al menos 1 ficha</div></div>
+      <div class="kpi k4"><div class="bar-k"></div><div class="cap">Relevadores activos</div><div class="big" id="kEnc">0</div><div class="small">cargaron fichas</div></div>
+    </div>
+
+    <div class="gp">
+      <div class="row"><div class="t">Avance general</div><div class="p" id="gPct">0%</div></div>
+      <div class="track"><div class="fill" id="gFill" style="width:0%"></div></div>
+      <div class="note" id="gNote"></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <div class="panel">
+          <h2>Avance por zona</h2>
+          <div class="ph">Relevado vs. comercios del padrón en cada zona. Tocá un encabezado para ordenar.</div>
+          <table class="ztbl" id="ztbl">
+            <thead><tr>
+              <th data-k="zona">Zona</th>
+              <th class="n" data-k="rel">Relev.</th>
+              <th class="n" data-k="meta">Padrón</th>
+              <th data-k="pct">Avance</th>
+            </tr></thead>
+            <tbody id="zbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Ranking de relevadores</h2>
+          <div class="ph">Fichas cargadas por cada estudiante.</div>
+          <ul class="rank" id="encList"></ul>
+        </div>
+        <div class="panel">
+          <h2>Calles más relevadas</h2>
+          <div class="ph">Top 12 calles con más comercios cargados.</div>
+          <ul class="rank" id="calleList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="foot">
+  Los datos se leen en vivo desde la hoja <b>Relevamiento</b> de la planilla. El avance por zona se calcula sobre los
+  comercios georreferenciados del padrón (2.298); los comercios nuevos detectados en la calle pueden hacer que una zona supere el 100%.
+</div>
+
+<script>
+/* ===== Config ===== */
+var URL_BACKEND = "https://script.google.com/macros/s/AKfycbzjPvP93i0diMeGw6K5zi6J8lWSmPkr3tNYe7uL2HQ4FNa3Jv3RD0D9Gtl7UjWZ39GBlA/exec";
+
+/* Comercios del padrón por zona (objetivo de referencia) */
+var META = {
+ "Zona 01":58, "Zona 02":143, "Zona 03":26, "Zona 04":94, "Zona 05":30, "Zona 06":67, "Zona 07":73, "Zona 08":90, "Zona 09":65, "Zona 10":30, "Zona 11":119, "Zona 12":57, "Zona 13":63, "Zona 14":104, "Zona 15":94, "Zona 16":57, "Zona 17":45, "Zona 18":141, "Zona 19":71, "Zona 20":25, "Zona 21":0, "Zona 22":846
+};
+var META_TOTAL = 0; for(var k in META) META_TOTAL += META[k];
+
+var sortK = "zona", sortDir = 1, lastData = null, timer = null;
+
+function cargar(){
+  var btn = document.getElementById('btn');
+  btn.disabled = true; btn.textContent = 'Actualizando…';
+  setState('<span class="dot live"></span>Consultando la planilla…', false);
+  jsonp(URL_BACKEND + '?action=resumen', function(res){
+    btn.disabled = false; btn.textContent = 'Actualizar';
+    if(!res || !res.ok){ setState('No se pudo leer la planilla. Revisá la conexión o la URL del backend.', true); return; }
+    lastData = res; render(res);
+    var d = new Date();
+    document.getElementById('stamp').innerHTML = 'Actualizado<br><b>'+d.toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+'</b>';
+  }, function(){
+    btn.disabled = false; btn.textContent = 'Reintentar';
+    setState('Sin conexión con la planilla. Verificá internet e intentá de nuevo.', true);
+  });
+}
+
+function setState(html, isErr){
+  var s = document.getElementById('state');
+  s.style.display = 'block'; s.className = 'state'+(isErr?' err':'');
+  s.innerHTML = html;
+  if(!isErr && lastData) s.style.display='none';
+}
+
+function render(res){
+  document.getElementById('state').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+
+  var total = res.total || 0;
+  var porZona = res.porZona || {};
+  var porEnc = res.porEncuestador || {};
+  var porCalle = res.porCalle || {};
+
+  /* KPIs */
+  var pct = META_TOTAL ? Math.round(total/META_TOTAL*100) : 0;
+  var zonasIni = 0; for(var z in porZona){ if(porZona[z]>0 && z!=='Sin dato') zonasIni++; }
+  var nEnc = 0; for(var e in porEnc){ if(e!=='(sin encuestador)') nEnc++; }
+  setNum('kTotal', total);
+  document.getElementById('kPct').textContent = pct+'%';
+  document.getElementById('kZonas').innerHTML = zonasIni+'<span style="font-size:20px;color:var(--muted)">/22</span>';
+  setNum('kEnc', nEnc);
+
+  document.getElementById('gPct').textContent = pct+'%';
+  document.getElementById('gFill').style.width = Math.min(pct,100)+'%';
+  var faltan = Math.max(META_TOTAL-total,0);
+  document.getElementById('gNote').textContent =
+    total.toLocaleString('es-AR')+' de ~'+META_TOTAL.toLocaleString('es-AR')+' comercios del padrón · faltan ~'+faltan.toLocaleString('es-AR');
+
+  renderZonas(porZona);
+  renderRank('encList', porEnc, ['(sin encuestador)'], 'gradPink');
+  renderRank('calleList', porCalle, ['(sin calle)'], 'gradPink', 12);
+}
+
+function renderZonas(porZona){
+  var rows = [];
+  for(var z in META){
+    var rel = porZona[z]||0, meta = META[z];
+    rows.push({zona:z, rel:rel, meta:meta, pct: meta? rel/meta*100 : 0});
+  }
+  rows.sort(function(a,b){
+    var va=a[sortK], vb=b[sortK];
+    if(sortK==='zona'){ return a.zona.localeCompare(b.zona)*sortDir; }
+    return (va-vb)*sortDir;
+  });
+  var tb = document.getElementById('zbody'); tb.innerHTML='';
+  rows.forEach(function(r){
+    var p = Math.round(r.pct);
+    var g = p>=100?'g-done': p>=66?'g-hi': p>=33?'g-mid':'g-lo';
+    var w = Math.min(p,100);
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="zname">'+r.zona+'</td>'+
+      '<td class="n">'+r.rel+'</td>'+
+      '<td class="n" style="color:var(--muted)">'+r.meta+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:8px">'+
+        '<div class="minibar '+g+'"><span style="width:'+w+'%"></span></div>'+
+        '<span class="pct '+g+'">'+p+'%</span></div></td>';
+    tb.appendChild(tr);
+  });
+}
+
+function renderRank(id, obj, skip, grad, limit){
+  var arr = [];
+  for(var k in obj){ if(skip.indexOf(k)>=0) continue; arr.push([k, obj[k]]); }
+  arr.sort(function(a,b){return b[1]-a[1];});
+  if(limit) arr = arr.slice(0,limit);
+  var el = document.getElementById(id); el.innerHTML='';
+  if(!arr.length){ el.innerHTML='<li class="empty">Todavía no hay datos cargados.</li>'; return; }
+  var max = arr[0][1]||1;
+  arr.forEach(function(it){
+    var li = document.createElement('li');
+    li.innerHTML = '<div class="lbl"><b>'+esc(it[0])+'</b><span class="c">'+it[1]+'</span></div>'+
+      '<div class="rb"><span style="width:'+Math.max(it[1]/max*100,4)+'%"></span></div>';
+    el.appendChild(li);
+  });
+}
+
+/* sort handlers */
+document.querySelectorAll('#ztbl th').forEach(function(th){
+  th.addEventListener('click', function(){
+    var k = th.getAttribute('data-k'); if(k==='pct') k='pct';
+    if(sortK===k) sortDir*=-1; else { sortK=k; sortDir = (k==='zona')?1:-1; }
+    if(lastData) renderZonas(lastData.porZona||{});
+  });
+});
+
+/* helpers */
+function setNum(id,n){ document.getElementById(id).textContent = (n||0).toLocaleString('es-AR'); }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+function jsonp(url, ok, err){
+  var cb = 'cb_'+Date.now()+Math.floor(Math.random()*1000);
+  var s = document.createElement('script');
+  var done = false;
+  var to = setTimeout(function(){ if(done)return; done=true; cleanup(); err&&err(); }, 15000);
+  window[cb] = function(data){ if(done)return; done=true; clearTimeout(to); cleanup(); ok&&ok(data); };
+  function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} s.parentNode&&s.parentNode.removeChild(s); }
+  s.onerror = function(){ if(done)return; done=true; clearTimeout(to); cleanup(); err&&err(); };
+  s.src = url + (url.indexOf('?')>=0?'&':'?') + 'callback=' + cb + '&_=' + Date.now();
+  document.body.appendChild(s);
+}
+
+/* init + auto-refresh cada 90s */
+cargar();
+timer = setInterval(cargar, 90000);
+</script>
+</body>
+</html>
